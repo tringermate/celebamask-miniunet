@@ -1,0 +1,67 @@
+# Official CelebAMask-HQ split (built by scripts/prepare_official.py): train on all
+# 24,183 training images, select the checkpoint on the 2,993 validation images.
+# Everything else is as in default.yaml. Set data.train_limit for a data-scaling run.
+
+seed: 42                      # seeds random, numpy and torch (CPU and CUDA)
+device: null                  # null = cuda if available, else cpu
+
+data:
+  train_images: dataset_official/train/images
+  train_masks: dataset_official/train/masks
+  val_images: dataset_official/val/images  # fixed validation folder instead of a random split
+  val_masks: dataset_official/val/masks
+  train_limit: null           # e.g. 1000 or 5000: random training subset of that size
+  image_size: [512, 512]      # (width, height) the images are resized to
+  split_seed: 42              # seed of the train_limit subset
+  batch_size: 4
+  num_workers: 4              # 24k images: decoding in the main process would bottleneck
+
+augmentation:                 # training split only
+  aug_flip: true
+  flip_p: 0.5                 # also swaps labels (4,5), (6,7), (8,9)
+  aug_rotate: true
+  rotate_p: 0.5
+  rotate_max_deg: 10.0        # uniform in [-10, +10]; bilinear image, nearest mask
+  aug_elastic: true
+  elastic_p: 0.3
+  elastic_alpha: 150.0
+  elastic_sigma: 15.0
+
+model:
+  n_classes: 19
+  dropout: 0.1                # Dropout2d at the bottleneck
+  cbam_reduction: 16
+  use_cbam: true
+  use_attention_gates: true
+  use_dilated_context: true
+
+loss:                         # CE(weight=w) + Dice(weight=w)
+  use_dice_loss: true
+  use_class_weights: true
+  bg_weight: 0.24799317356429001     # w[0]
+  normal_weight: 1.563922206806157   # w[1:]
+  tiny_weight: 11.877020450773554    # w[15], w[16]
+  tiny_classes: [15, 16]             # earrings, necklace
+
+optimizer:                    # AdamW
+  lr: 1.0e-3
+  weight_decay: 1.0e-4
+
+scheduler:                    # CosineAnnealingWarmRestarts, stepped once per epoch
+  T_0: 15
+  T_mult: 2
+
+train:
+  epochs: 15                  # one cosine cycle; ~4x the optimiser steps of default.yaml
+  amp: true                   # mixed precision; only active on CUDA
+  output_dir: outputs/official
+
+inference:
+  tta: true                   # horizontal-flip test-time augmentation
+
+tuning:                       # Optuna search over the three loss weights
+  n_trials: 10
+  epochs_per_trial: 10
+  bg_weight: [0.05, 0.3]
+  normal_weight: [1.0, 4.0]
+  tiny_weight: [5.0, 25.0]

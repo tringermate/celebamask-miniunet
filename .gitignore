@@ -1,0 +1,24 @@
+# Data and weights (CelebAMask-HQ is non-commercial research only; no faces in this repo)
+data/
+dataset/
+dataset_official/
+models/
+outputs/
+*.pth
+*.pt
+*.zip
+predictions/
+
+# Local notebooks (may contain image outputs)
+reference/
+*.ipynb
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.venv/
+venv/
+.ipynb_checkpoints/

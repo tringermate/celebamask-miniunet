@@ -1,0 +1,67 @@
+# Low-data setting: 1,000 images drawn from the official CelebAMask-HQ training split
+# (built by scripts/prepare_official.py), split 900 train / 100 validation. No image
+# from the official val or test split is used for training or model selection.
+# Relative paths are resolved against the current working directory.
+
+seed: 42                      # seeds random, numpy and torch (CPU and CUDA)
+device: null                  # null = cuda if available, else cpu
+
+data:
+  train_images: dataset_official/train/images
+  train_masks: dataset_official/train/masks
+  train_limit: 1000           # fixed random subset of the training split (null = all)
+  image_size: [512, 512]      # (width, height) the images are resized to
+  val_fraction: 0.1           # 1,000 images -> 900 train / 100 validation
+  split_seed: 42              # seed of the subset and of the train/validation split
+  batch_size: 4
+  num_workers: 4              # elastic deformation is CPU-heavy; 0 = main process
+
+augmentation:                 # training split only
+  aug_flip: true
+  flip_p: 0.5                 # also swaps labels (4,5), (6,7), (8,9)
+  aug_rotate: true
+  rotate_p: 0.5
+  rotate_max_deg: 10.0        # uniform in [-10, +10]; bilinear image, nearest mask
+  aug_elastic: true
+  elastic_p: 0.3
+  elastic_alpha: 150.0
+  elastic_sigma: 15.0
+
+model:
+  n_classes: 19
+  dropout: 0.1                # Dropout2d at the bottleneck
+  cbam_reduction: 16
+  use_cbam: true
+  use_attention_gates: true
+  use_dilated_context: true
+
+loss:                         # CE(weight=w) + Dice(weight=w)
+  use_dice_loss: true
+  use_class_weights: true
+  bg_weight: 0.24799317356429001     # w[0]
+  normal_weight: 1.563922206806157   # w[1:]
+  tiny_weight: 11.877020450773554    # w[15], w[16]
+  tiny_classes: [15, 16]             # earrings, necklace
+
+optimizer:                    # AdamW
+  lr: 1.0e-3
+  weight_decay: 1.0e-4
+
+scheduler:                    # CosineAnnealingWarmRestarts, stepped once per epoch
+  T_0: 15
+  T_mult: 2
+
+train:
+  epochs: 105
+  amp: true                   # mixed precision; only active on CUDA
+  output_dir: outputs/default # checkpoints and history.csv
+
+inference:
+  tta: true                   # horizontal-flip test-time augmentation
+
+tuning:                       # Optuna search over the three loss weights
+  n_trials: 10
+  epochs_per_trial: 10
+  bg_weight: [0.05, 0.3]
+  normal_weight: [1.0, 4.0]
+  tiny_weight: [5.0, 25.0]

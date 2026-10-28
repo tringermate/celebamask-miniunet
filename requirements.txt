@@ -1,0 +1,8 @@
+torch
+torchvision
+numpy
+pillow
+scipy
+tqdm
+pyyaml
+optuna  # only needed for tune_weights.py
